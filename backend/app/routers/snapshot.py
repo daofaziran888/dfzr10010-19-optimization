@@ -6,11 +6,12 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, Query
 
 from app.schemas import ActionResult, EntryPayload, PageResult
-from app.services.snapshot import SnapshotService
+from app.services.snapshot import SnapshotMergeSyncService, SnapshotService
 
 router = APIRouter(prefix="/api/snapshot", tags=["表快照管理"])
 
 service = SnapshotService()
+merge_sync_service = SnapshotMergeSyncService()
 
 LIST_FIELDS = ["快照编号", "表名称", "快照时间", "快照版本", "快照大小", "保留天数", "创建方式", "快照状态"]
 STATUSES = ["已创建", "保留中", "已过期", "已清理"]
@@ -28,6 +29,39 @@ def list_entries(
         raise HTTPException(status_code=400, detail="每页最多 200 条，请缩小分页范围")
     items, total = service.list_entries(keyword=keyword, status=status, page=page, size=size)
     return PageResult(items=items, total=total, page=page, size=size)
+
+
+@router.get("/merge-sync/{branch_id}")
+def merge_sync_state(branch_id: int) -> dict:
+    """读取快照模块对某一合并批次的同步进度；未同步过时给出空进度而不是 404。"""
+    state = merge_sync_service.state(branch_id)
+    if state is None:
+        return {"ok": True, "branch_id": branch_id, "status": "未同步", "synced_segments": []}
+    return state
+
+
+@router.post("/merge-sync/{branch_id}/compatibility")
+def merge_compatibility(branch_id: int, payload: EntryPayload) -> ActionResult:
+    """只校验合并审计清单中冲突处置结果的兼容性，不改任何快照明细。"""
+    result = merge_sync_service.compatibility(branch_id, team=payload.values.get("team") or payload.values.get("operator_team") or payload.values.get("操作小组"))
+    message = "冲突处置结果兼容，可继续同步" if result.get("ok") else "；".join(result.get("errors", []))
+    return ActionResult(ok=bool(result.get("ok")), message=message, entry=result)
+
+
+@router.post("/merge-sync/{branch_id}/sync")
+def merge_sync(branch_id: int, payload: EntryPayload) -> ActionResult:
+    """消费冲突处置结果：兼容性校验通过后保留已有明细，只继续未完成分段并落快照。"""
+    result, message = merge_sync_service.sync(branch_id, payload.values)
+    if result is None:
+        return ActionResult(ok=False, message=message)
+    return ActionResult(ok=True, message=message, entry=result)
+
+
+@router.get("/export")
+def export_entries() -> dict[str, Any]:
+    """导出表快照管理清单：返回当前过滤条件下的全量数据。"""
+    items, total = service.list_entries(page=1, size=10000)
+    return {"module": "snapshot", "total": total, "items": items}
 
 
 @router.get("/{entry_id}", response_model=dict)
@@ -58,8 +92,3 @@ def run_action(entry_id: int, payload: EntryPayload) -> ActionResult:
     return ActionResult(ok=True, message=message, entry=entry)
 
 
-@router.get("/export")
-def export_entries() -> dict[str, Any]:
-    """导出表快照管理清单：返回当前过滤条件下的全量数据。"""
-    items, total = service.list_entries(page=1, size=10000)
-    return {"module": "snapshot", "total": total, "items": items}

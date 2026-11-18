@@ -7,6 +7,7 @@ const Compress = () => import('@/views/compress/index.vue')
 const Metadata = () => import('@/views/metadata/index.vue')
 const Snapshot = () => import('@/views/snapshot/index.vue')
 const Branch = () => import('@/views/branch/index.vue')
+const BranchAudits = () => import('@/views/branch/audits.vue')
 const Rollback = () => import('@/views/rollback/index.vue')
 const Partition = () => import('@/views/partition/index.vue')
 const Iceberg = () => import('@/views/iceberg/index.vue')
@@ -28,6 +29,7 @@ const router = createRouter({
     { path: '/metadata', name: 'metadata', component: Metadata },
     { path: '/snapshot', name: 'snapshot', component: Snapshot },
     { path: '/branch', name: 'branch', component: Branch },
+    { path: '/branch/audits', name: 'branch-audits', component: BranchAudits },
     { path: '/rollback', name: 'rollback', component: Rollback },
     { path: '/partition', name: 'partition', component: Partition },
     { path: '/iceberg', name: 'iceberg', component: Iceberg },

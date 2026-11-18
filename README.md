@@ -54,7 +54,7 @@ npm run dev
 | 数据压缩策略 | `compress` | 压缩配置 | 配置编号、目标表名、压缩算法 |
 | 元数据服务 | `metadata` | 元数据表 | 表编号、表名称、字段清单 |
 | 表快照管理 | `snapshot` | 快照记录 | 快照编号、表名称、快照时间 |
-| 数据分支合并 | `branch` | 分支记录 | 分支编号、表名称、分支类型 |
+| 数据分支合并 | `branch` | 分支记录 / 合并批次 | 分支编号、表名称、分支类型；冲突段、目标版本、唯一裁决 |
 | 数据回滚恢复 | `rollback` | 回滚记录 | 记录编号、表名称、回滚版本 |
 | 分区演进管理 | `partition` | 演进计划 | 计划编号、表名称、当前分区 |
 | 表优化管理 | `iceberg` | 优化任务 | 任务编号、表名称、优化类型 |
@@ -72,6 +72,24 @@ npm run dev
   `backend/app/routers/<模块>.py`，业务规则在 `backend/app/services/<模块>.py`。
 - 列表接口统一返回 `{ items, total, page, size }`，动作接口统一返回 `{ ok, message }`。
 - 状态流转只允许在 `app/services` 里改，路由层不做业务判断。
+
+## 数据分支合并的冲突段续做
+
+数据分支合并除了分支记录本身，还维护“合并批次 → 冲突段 Cxx → 冲突处置结果”的链路：
+
+- `backend/app/services/merge.py`：读取现有合并批次，重入时跳过已完成冲突段，只继续未完成段，
+  发布带唯一裁决和完整字段映射的目标表版本；已完成的段不会被二次套用。
+- `backend/app/services/snapshot.py`：快照模块消费冲突处置结果前先做兼容性校验，校验不过不改明细；
+  中断后只继续未完成分段，并保留上一稳定快照。
+- 接口：
+  - `GET /api/branch/merge/batches` 合并批次列表
+  - `GET /api/branch/{id}/merge` 已完成段 / 待裁段 / 唯一目标版本
+  - `POST /api/branch/{id}/merge/reenter` 冲突段续做（`segments`、`verdict`、`rebase_mode`）
+  - `POST /api/branch/{id}/target-commit` 登记目标分支新提交
+  - `GET /api/branch/merge/audits` 合并审计清单（按批次归并，重复段只留一条）
+  - `POST /api/branch/merge/audits/{batch_no}/consume` 其它模块消费并同步版本依据
+  - `GET /api/snapshot/merge-sync/{branch_id}` / `POST .../compatibility` / `POST .../sync` 快照同步
+- 前端：`/branch` 内可直接续做冲突段；`/branch/audits` 是合并审计清单。
 
 领域：数据工程
 子方向：数仓与数据湖

@@ -12,6 +12,7 @@ from app.routers import compress as router_compress
 from app.routers import metadata as router_metadata
 from app.routers import snapshot as router_snapshot
 from app.routers import branch as router_branch
+from app.routers import merge as router_merge
 from app.routers import rollback as router_rollback
 from app.routers import partition as router_partition
 from app.routers import iceberg as router_iceberg
@@ -23,4 +24,4 @@ from app.routers import schedule as router_schedule
 from app.routers import stats as router_stats
 from app.routers import migrate as router_migrate
 
-ROUTERS = [router_tablefmt, router_compact, router_compress, router_metadata, router_snapshot, router_branch, router_rollback, router_partition, router_iceberg, router_catalog, router_cleanup, router_quota, router_lineage, router_schedule, router_stats, router_migrate]
+ROUTERS = [router_tablefmt, router_compact, router_compress, router_metadata, router_snapshot, router_branch, router_merge, router_rollback, router_partition, router_iceberg, router_catalog, router_cleanup, router_quota, router_lineage, router_schedule, router_stats, router_migrate]
